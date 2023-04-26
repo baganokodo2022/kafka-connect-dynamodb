@@ -233,4 +233,14 @@ public class KclNoopCloudWatch implements AmazonCloudWatch {
     public PutInsightRuleResult putInsightRule(PutInsightRuleRequest putInsightRuleRequest) {
         return null;
     }
+
+    @Override
+    public PutManagedInsightRulesResult putManagedInsightRules(PutManagedInsightRulesRequest putManagedInsightRulesRequest) {
+        return null;
+    }
+
+    @Override
+    public ListManagedInsightRulesResult listManagedInsightRules(ListManagedInsightRulesRequest listManagedInsightRulesRequest) {
+        return null;
+    }
 }
