@@ -113,7 +113,7 @@ public class DynamoDBSourceTask extends SourceTask {
         DynamoDBSourceTaskConfig config = new DynamoDBSourceTaskConfig(configProperties);
         LOGGER.info("Starting task for table: {}", config.getTableName());
 
-        LOGGER.debug("Getting DynamoDB description for table: {}", config.getTableName());
+        LOGGER.info("Getting DynamoDB description for table: {}", config.getTableName());
         if (client == null) {
             client = AwsClients.buildDynamoDbClient(
                     config.getAwsRegion(),
@@ -127,11 +127,11 @@ public class DynamoDBSourceTask extends SourceTask {
         initSyncDelay = config.getInitSyncDelay();
         initSyncDisable = config.getInitSyncDisable();
 
-        LOGGER.debug("Getting offset for table: {}", tableDesc.getTableName());
+        LOGGER.info("Getting offset for table: {}", tableDesc.getTableName());
         setStateFromOffset();
         LOGGER.info("Task status: {}", sourceInfo);
 
-        LOGGER.debug("Initiating DynamoDB table scanner and record converter.");
+        LOGGER.info("Initiating DynamoDB table scanner and record converter.");
         if (tableScanner == null) {
             tableScanner = new DynamoDBTableScanner(client,
                     tableDesc.getTableName(),
@@ -163,27 +163,31 @@ public class DynamoDBSourceTask extends SourceTask {
         Map<String, Object> offset = context.offsetStorageReader()
                                             .offset(Collections.singletonMap("table_name", tableDesc.getTableName()));
         if (offset != null) {
-            sourceInfo = SourceInfo.fromOffset(offset, clock);
-        } else {
-            LOGGER.debug("No stored offset found for table: {}", tableDesc.getTableName());
-            sourceInfo = new SourceInfo(tableDesc.getTableName(), clock);            
-            if (initSyncDisable) {
-                sourceInfo.endInitSync();
-                sourceInfo.initSync = false;
-                sourceInfo.lastInitSyncStart = Instant.EPOCH;
-                LOGGER.info("INIT_SYNC disabled, sourceInfo initSyncStatus={}, lastInitSyncStart={}, lastInitSyncEnd={}",  
-                    sourceInfo.initSyncStatus,
-                    sourceInfo.lastInitSyncStart,
-                    sourceInfo.lastInitSyncEnd
-                );
-            } else {
-                sourceInfo.startInitSync(); // InitSyncStatus always needs to run after adding new table
-                LOGGER.info("INIT_SYNC enabled, sourceInfo initSyncStatus={}, lastInitSyncStart={}, lastInitSyncEnd={}",  
-                    sourceInfo.initSyncStatus,
-                    sourceInfo.lastInitSyncStart,
-                    sourceInfo.lastInitSyncEnd
-                );
+            SourceInfo fromConnectOffsetTopic = SourceInfo.fromOffset(offset, clock);
+            if ( (fromConnectOffsetTopic.initSyncStatus == InitSyncStatus.FINISHED )
+                || (fromConnectOffsetTopic.initSyncStatus == InitSyncStatus.RUNNING && (!initSyncDisable)) ) {
+                sourceInfo = fromConnectOffsetTopic; // continue from where the previous run left
+                return;
             }
+        }
+        LOGGER.info("No stored offset found for table: {}", tableDesc.getTableName());
+        sourceInfo = new SourceInfo(tableDesc.getTableName(), clock);
+        if (initSyncDisable) {
+            sourceInfo.endInitSync();
+            sourceInfo.initSync = false;
+            sourceInfo.lastInitSyncStart = Instant.EPOCH;
+            LOGGER.info("INIT_SYNC disabled, sourceInfo initSyncStatus={}, lastInitSyncStart={}, lastInitSyncEnd={}",  
+                sourceInfo.initSyncStatus,
+                sourceInfo.lastInitSyncStart,
+                sourceInfo.lastInitSyncEnd
+            );
+        } else {
+            sourceInfo.startInitSync();
+            LOGGER.info("INIT_SYNC enabled, sourceInfo initSyncStatus={}, lastInitSyncStart={}, lastInitSyncEnd={}",  
+                sourceInfo.initSyncStatus,
+                sourceInfo.lastInitSyncStart,
+                sourceInfo.lastInitSyncEnd
+            );
         }
     }
 
@@ -205,7 +209,7 @@ public class DynamoDBSourceTask extends SourceTask {
     public List<SourceRecord> poll() throws InterruptedException {
         try {
             if (shutdown) {
-                LOGGER.debug("Poll exits because shutdown was requested");
+                LOGGER.info("Poll exits because shutdown was requested");
                 return null;
             }
             if (sourceInfo.initSyncStatus == InitSyncStatus.RUNNING) {
@@ -245,7 +249,7 @@ public class DynamoDBSourceTask extends SourceTask {
             Thread.sleep(initSyncDelay * 1000);
         }
 
-        LOGGER.info("Continuing INIT_SYNC {}", sourceInfo);
+        LOGGER.debug("Continuing INIT_SYNC {}", sourceInfo);
         ScanResult scanResult = tableScanner.getItems(sourceInfo.exclusiveStartKey);
 
         LinkedList<SourceRecord> result = new LinkedList<>();
@@ -280,7 +284,7 @@ public class DynamoDBSourceTask extends SourceTask {
         }
 
         if (sourceInfo.initSyncStatus == InitSyncStatus.RUNNING) {
-            LOGGER.info(
+            LOGGER.debug(
                     "INIT_SYNC iteration returned {}. Status: {}", result.size(), sourceInfo);
         } else {
             LOGGER.info("INIT_SYNC FINISHED: {}", sourceInfo);
