@@ -1,0 +1,2 @@
+#~ {"path": "**", "required_reviews": 1, "teams": {"@data/data-platform": {"required_reviews": 1}}}
+** @data/data-platform
