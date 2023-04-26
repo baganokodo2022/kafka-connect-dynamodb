@@ -153,6 +153,7 @@ public class DynamoDBSourceTask extends SourceTask {
                     AwsClients.getCredentials(config.getAwsAccessKeyIdValue(), config.getAwsSecretKeyValue(), config.getAwsAssumeRoleArn()),
                     eventsQueue,
                     shardRegister);
+            // KclRecordProcessor automatically checkpoints shardId and sequenceNumber stored in shardRegister to the KCL lease table.
         }
         kclWorker.start(client, dynamoDBStreamsClient, tableDesc.getTableName(), config.getTaskID(), config.getDynamoDBServiceEndpoint(), config.getKCLTableBillingMode());
 
@@ -450,6 +451,7 @@ public class DynamoDBSourceTask extends SourceTask {
 
         LOGGER.debug("commitRecord: ShardID: {} lastPushedSequenceNumber: {}", shardId, sequenceNumber);
         shardInfo.setLastCommittedRecordSeqNo(sequenceNumber);
+        // KclRecordProcessor automatically checkpoints shardId and sequenceNumber stored in shardRegister to the KCL lease table.
     }
 
     ConcurrentHashMap<String, ShardInfo> getShardRegister() {
