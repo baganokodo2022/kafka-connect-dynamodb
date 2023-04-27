@@ -1,5 +1,14 @@
 package com.trustpilot.connector.dynamodb.kcl;
 
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.time.Instant;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.amazonaws.auth.AWSCredentialsProvider;
 import com.amazonaws.services.cloudwatch.AmazonCloudWatch;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
@@ -11,15 +20,9 @@ import com.amazonaws.services.dynamodbv2.streamsadapter.StreamsWorkerFactory;
 import com.amazonaws.services.kinesis.clientlibrary.interfaces.v2.IRecordProcessorFactory;
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.InitialPositionInStream;
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.KinesisClientLibConfiguration;
+import com.amazonaws.services.kinesis.clientlibrary.lib.worker.ShardSyncStrategyType;
 import com.amazonaws.services.kinesis.clientlibrary.lib.worker.Worker;
 import com.trustpilot.connector.dynamodb.Constants;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Configures Kinesis Client Library worker and starts it on a dedicated thread
@@ -133,7 +136,7 @@ public class KclWorkerImpl implements KclWorker {
                 Constants.KCL_WORKER_APPLICATION_NAME_PREFIX + tableName,
                 streamArn,
                 awsCredentialsProvider,
-                Constants.KCL_WORKER_APPLICATION_NAME_PREFIX + tableName + Constants.KCL_WORKER_NAME_PREFIX + taskid)
+                Constants.KCL_WORKER_APPLICATION_NAME_PREFIX + tableName + Constants.KCL_WORKER_NAME_PREFIX + taskid + "-" + Instant.now().toEpochMilli())
 
                 // worker will call record processor even if there is no new data,
                 // giving worker a chance to checkpoint previously queued and now committed data.
@@ -146,14 +149,17 @@ public class KclWorkerImpl implements KclWorker {
                 // we want the maximum batch size to avoid network transfer latency overhead
                 .withMaxRecords(Constants.STREAMS_RECORDS_LIMIT)
 
-                // wait a reasonable amount of time - default 0.5 seconds
+                // wait a reasonable amount of time - default 1 second
                 .withIdleTimeBetweenReadsInMillis(Constants.IDLE_TIME_BETWEEN_READS)
 
                 // make parent shard poll interval tunable to decrease time to run integration test
                 .withParentShardPollIntervalMillis(Constants.DEFAULT_PARENT_SHARD_POLL_INTERVAL_MILLIS)
 
-                // avoid losing leases too often - default 60 seconds
+                // avoid losing leases too often - default 10 seconds
                 .withFailoverTimeMillis(Constants.KCL_FAILOVER_TIME)
+
+                // Time between tasks to sync leases and Kinesis shards - default 60s
+                .withShardSyncIntervalMillis(60000L)
 
                 // logs warning if RecordProcessor task is blocked for long time periods.
                 .withLogWarningForTaskAfterMillis(60 * 1000)
@@ -165,7 +171,10 @@ public class KclWorkerImpl implements KclWorker {
                 .withDynamoDBEndpoint(endpoint)
 
                 // custom table billing mode
-                .withBillingMode(kclTableBillingMode);
+                .withBillingMode(kclTableBillingMode)
+
+                // default value
+                .withShardSyncStrategyType(ShardSyncStrategyType.SHARD_END);
     }
 
     /**

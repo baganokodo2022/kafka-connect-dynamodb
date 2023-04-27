@@ -76,7 +76,7 @@ public class DynamoDBSourceTask extends SourceTask {
     private static final Logger LOGGER = LoggerFactory.getLogger(DynamoDBSourceTask.class);
     private Clock clock = Clock.systemUTC();
 
-    private final ArrayBlockingQueue<KclRecordsWrapper> eventsQueue = new ArrayBlockingQueue<>(10, true);
+    private final ArrayBlockingQueue<KclRecordsWrapper> eventsQueue = new ArrayBlockingQueue<>(256, true);
 
     private AmazonDynamoDB client;
     private TableScanner tableScanner;

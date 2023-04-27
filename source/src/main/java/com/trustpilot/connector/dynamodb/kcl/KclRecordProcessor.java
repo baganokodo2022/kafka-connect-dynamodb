@@ -86,17 +86,20 @@ public class KclRecordProcessor implements IRecordProcessor, IShutdownNotificati
         lastCheckpointTime = clock.millis();
         lastProcessedSeqNo = "";
 
-        LOGGER.debug("Registering new recordProcessor for ShardId: {}", shardId);
+        LOGGER.info("Registering new recordProcessor for ShardId: {}", shardId);
         shardRegister.putIfAbsent(shardId, new ShardInfo(initializationInput.getShardId()));
     }
 
     /**
      * Worker is configured to invoke {@link KclRecordProcessor} even if there is no new event records.
      *
-     * This allows checkpoints to execute at regular intervals.
+     * This allows checkpoints to execute at regular intervals. 
      */
     @Override
     public void processRecords(ProcessRecordsInput processRecordsInput) {
+        LOGGER.info(">>>>>>>>>>>>>>> processRecords is invoked, received record count {}", 
+            processRecordsInput.getRecords()==null?0:processRecordsInput.getRecords().size());
+
         if (processRecordsInput.getRecords() != null && processRecordsInput.getRecords().size() > 0) {
             process(processRecordsInput);
         }
