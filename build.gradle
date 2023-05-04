@@ -4,7 +4,6 @@ buildscript {
   }
 }
 
-
 plugins {
     id 'idea'
     id 'com.palantir.git-version' version '0.5.2'
@@ -22,7 +21,7 @@ description = "kafka-connect-dynamodb"
 
 allprojects {
     group "com.trustpilot.kafka.connect.dynamodb"
-    version = gitVersion()
+    version = "0.12.4"
 
     repositories {
         jcenter()

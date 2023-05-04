@@ -11,10 +11,13 @@ import com.amazonaws.services.kinesis.clientlibrary.types.ProcessRecordsInput;
 import com.amazonaws.services.kinesis.clientlibrary.types.ShutdownInput;
 import com.amazonaws.services.kinesis.model.Record;
 import com.trustpilot.connector.dynamodb.Constants;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Clock;
+import java.time.Instant;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -77,11 +80,17 @@ public class KclRecordProcessor implements IRecordProcessor, IShutdownNotificati
         this.eventsQueue = dataQueue;
         this.shardRegister = shardRegister;
         this.clock = clock;
+
+        LOGGER.info(">>>>>>>>>>>>>>> constructor KclRecordProcessor, tableName {}, instance {}", 
+            tableName, this);
     }
 
 
     @Override
     public void initialize(InitializationInput initializationInput) {
+        LOGGER.info(">>>>>>>>>>>>>>> initialize KclRecordProcessor for ShardId: {}", 
+            initializationInput == null? -1: initializationInput.getShardId());
+
         shardId = initializationInput.getShardId();
         lastCheckpointTime = clock.millis();
         lastProcessedSeqNo = "";
@@ -97,13 +106,22 @@ public class KclRecordProcessor implements IRecordProcessor, IShutdownNotificati
      */
     @Override
     public void processRecords(ProcessRecordsInput processRecordsInput) {
-        LOGGER.info(">>>>>>>>>>>>>>> processRecords is invoked, received record count {}", 
+        LOGGER.info(">>>>>>>>>>>>>>> processRecords is invoked, instance {}, shardId {}, received record count {}", 
+            this,
+            shardId,
             processRecordsInput.getRecords()==null?0:processRecordsInput.getRecords().size());
 
+        Instant beforeProcess = Instant.now();
         if (processRecordsInput.getRecords() != null && processRecordsInput.getRecords().size() > 0) {
             process(processRecordsInput);
         }
+        Instant AfterProcess = Instant.now();
         checkpoint(processRecordsInput.getCheckpointer());
+        Instant AfterCheckpoint = Instant.now();
+        LOGGER.info(">>>>>>>>>>>>>>> processRecords latencies, instance {}, process {}, checkpoint {}",
+            this,
+            Duration.between(beforeProcess, AfterProcess).toMillis(), 
+            Duration.between(AfterProcess, AfterCheckpoint).toMillis());
     }
 
     /**
@@ -185,7 +203,7 @@ public class KclRecordProcessor implements IRecordProcessor, IShutdownNotificati
     @Override
     public void shutdown(ShutdownInput shutdownInput) {
         shutdownRequested = true;
-        LOGGER.info("KclRecordProcessor {} shutdown requested: {}", this.shardId, shutdownInput.getShutdownReason());
+        LOGGER.info("KclRecordProcessor {} shutdown requested: {}, instance {}", this.shardId, shutdownInput.getShutdownReason(), this);
 
         try {
             // Shard end
