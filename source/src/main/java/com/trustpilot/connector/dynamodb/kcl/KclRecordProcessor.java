@@ -81,14 +81,13 @@ public class KclRecordProcessor implements IRecordProcessor, IShutdownNotificati
         this.shardRegister = shardRegister;
         this.clock = clock;
 
-        LOGGER.info(">>>>>>>>>>>>>>> constructor KclRecordProcessor, tableName {}, instance {}", 
-            tableName, this);
+        LOGGER.info("KclRecordProcessor constructor invoked, tableName {}", tableName);
     }
 
 
     @Override
     public void initialize(InitializationInput initializationInput) {
-        LOGGER.info(">>>>>>>>>>>>>>> initialize KclRecordProcessor for ShardId: {}", 
+        LOGGER.info("Initializing KclRecordProcessor for ShardId: {}", 
             initializationInput == null? -1: initializationInput.getShardId());
 
         shardId = initializationInput.getShardId();
@@ -102,12 +101,11 @@ public class KclRecordProcessor implements IRecordProcessor, IShutdownNotificati
     /**
      * Worker is configured to invoke {@link KclRecordProcessor} even if there is no new event records.
      *
-     * This allows checkpoints to execute at regular intervals. 
+     * This allows checkpointing to execute at a regular interval.
      */
     @Override
     public void processRecords(ProcessRecordsInput processRecordsInput) {
-        LOGGER.info(">>>>>>>>>>>>>>> processRecords is invoked, instance {}, shardId {}, received record count {}", 
-            this,
+        LOGGER.debug("KclRecordProcessor processRecords is invoked, shardId {}, received record count {}", 
             shardId,
             processRecordsInput.getRecords()==null?0:processRecordsInput.getRecords().size());
 
@@ -115,13 +113,13 @@ public class KclRecordProcessor implements IRecordProcessor, IShutdownNotificati
         if (processRecordsInput.getRecords() != null && processRecordsInput.getRecords().size() > 0) {
             process(processRecordsInput);
         }
-        Instant AfterProcess = Instant.now();
+        Instant afterProcess = Instant.now();
         checkpoint(processRecordsInput.getCheckpointer());
-        Instant AfterCheckpoint = Instant.now();
-        LOGGER.info(">>>>>>>>>>>>>>> processRecords latencies, instance {}, process {}, checkpoint {}",
-            this,
-            Duration.between(beforeProcess, AfterProcess).toMillis(), 
-            Duration.between(AfterProcess, AfterCheckpoint).toMillis());
+        Instant afterCheckpoint = Instant.now();
+        LOGGER.debug("KclRecordProcessor processRecords latencies on ShardId: {}, process milliseconds {}, checkpoint milliseconds {}",
+            shardId,
+            Duration.between(beforeProcess, afterProcess).toMillis(), 
+            Duration.between(afterProcess, afterCheckpoint).toMillis());
     }
 
     /**
@@ -152,7 +150,7 @@ public class KclRecordProcessor implements IRecordProcessor, IShutdownNotificati
 
         String firstProcessedSeqNo = records.get(0).getSequenceNumber();
         lastProcessedSeqNo = records.get(records.size() - 1).getSequenceNumber();
-        LOGGER.info("Added {} records to eventsQueue. Table: {} ShardID: {}, FirstSeqNo: {}, LastSeqNo: {}",
+        LOGGER.debug("Added {} records to eventsQueue. Table: {} ShardID: {}, FirstSeqNo: {}, LastSeqNo: {}",
                     records.size(),
                     tableName,
                     shardId,
@@ -173,7 +171,7 @@ public class KclRecordProcessor implements IRecordProcessor, IShutdownNotificati
 
             if (!lastCommittedRecordSequenceNumber.equals("")) {  // If at least one record was committed to Kafka
                 try {
-                    LOGGER.info("KCL checkpoint table: {} shardId: {} at sequenceNumber: {}",
+                    LOGGER.debug("KCL checkpoint table: {} shardId: {} at sequenceNumber: {}",
                                 tableName,
                                 shardId,
                                 lastCommittedRecordSequenceNumber);
@@ -203,7 +201,7 @@ public class KclRecordProcessor implements IRecordProcessor, IShutdownNotificati
     @Override
     public void shutdown(ShutdownInput shutdownInput) {
         shutdownRequested = true;
-        LOGGER.info("KclRecordProcessor {} shutdown requested: {}, instance {}", this.shardId, shutdownInput.getShutdownReason(), this);
+        LOGGER.info("KclRecordProcessor {} shutdown requested: {}", this.shardId, shutdownInput.getShutdownReason());
 
         try {
             // Shard end

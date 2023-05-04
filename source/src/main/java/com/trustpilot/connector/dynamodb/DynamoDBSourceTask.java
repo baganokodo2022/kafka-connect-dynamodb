@@ -1,5 +1,23 @@
 package com.trustpilot.connector.dynamodb;
 
+import java.math.BigInteger;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Collections;
+import java.util.Date;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+
+import org.apache.kafka.connect.source.SourceRecord;
+import org.apache.kafka.connect.source.SourceTask;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBStreams;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
@@ -15,19 +33,6 @@ import com.trustpilot.connector.dynamodb.kcl.KclWorker;
 import com.trustpilot.connector.dynamodb.kcl.KclWorkerImpl;
 import com.trustpilot.connector.dynamodb.kcl.ShardInfo;
 import com.trustpilot.connector.dynamodb.utils.RecordConverter;
-import org.apache.kafka.connect.source.SourceRecord;
-import org.apache.kafka.connect.source.SourceTask;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.math.BigInteger;
-import java.time.Clock;
-import java.time.Duration;
-import java.time.Instant;
-import java.util.*;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 
 /**
  * This source tasks tracks all DynamoDB table changes via DynamoDB Streams.
